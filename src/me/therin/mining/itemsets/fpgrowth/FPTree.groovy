@@ -21,7 +21,7 @@ public class FPTree<Item> extends ItemsetGenerator<Item> {
     FPTree(BasketIterator<Item> baskets) {
         super(baskets)
         first = true
-        baskets.each { addToTree(root, (List<Item>) it.items.clone(), itemAcc) }
+        baskets.each { addToTree(root, (List<Item>) it.items.reverse().clone(), itemAcc) }
     }
 
     FPTree(BasketIterator<Item> baskets, boolean bo) {
@@ -61,8 +61,6 @@ public class FPTree<Item> extends ItemsetGenerator<Item> {
         Map<List<Item>, Integer> lists = new HashMap()
 
         if (root.count >= minSup) {
-            System.out.print(suffix)
-            System.out.println(": " + root.count)
             lists.put(suffix, root.count)
         }
         if (root.children.size() < 1 || (!first && (root.count < minSup))) {
@@ -75,10 +73,6 @@ public class FPTree<Item> extends ItemsetGenerator<Item> {
               reverse.subList(i + 1, reverse.size()) : new ArrayList<Item>()
             def tree = this.getPrefixTree(item)
 
-            //if (tree.root.count > 0) {
-                //System.out.println(tree.toString())
-                //System.out.println(tree.suffix + ": " + tree.root.count)
-            //}
             lists.putAll(tree.getFrqItm(list, minSup))
         }
 
@@ -176,7 +170,7 @@ public class FPTree<Item> extends ItemsetGenerator<Item> {
         minSup = -1
 
         baskets.reset()
-        baskets.each { addToTree(root, (List<Item>) it.items.clone(), itemAcc) }
+        baskets.each { addToTree(root, (List<Item>) it.items.reverse(), itemAcc) }
         return true
     }
 
