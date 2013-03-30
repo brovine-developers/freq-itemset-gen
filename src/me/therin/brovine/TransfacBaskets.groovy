@@ -36,7 +36,7 @@ group by tf_cart
 where cnt > 140 and cnt < 150) g
 INNER JOIN apriori_staging USING (tf_cart)
 INNER JOIN factor_matches ON (tf_cart = matchid)
-ORDER BY geneid, tf_cart desc
+ORDER BY geneid, tf_cart
 """
 
     private static final String NUM_BASKETS =
@@ -55,6 +55,8 @@ FROM apriori_staging
             conn =
                 DriverManager.getConnection("jdbc:mysql://localhost/brovine?" +
                         "user=team_brovine&password=v9G4uJn7Rta9vQvN");
+
+            fillBaskets()
         }
         catch (SQLException ex) {
             // handle any errors
@@ -100,8 +102,12 @@ FROM apriori_staging
 
     @Override
     boolean reset() {
-        itr = baskets.iterator()
-        return true
+        if (fillBaskets()) {
+            itr = baskets.iterator()
+            return true
+        }
+
+        return false
     }
 
     @Override
