@@ -43,7 +43,7 @@ class TestBaskets implements BasketIterator<Character> {
     boolean hasNext() { iterator.hasNext() }
 
     @Override
-    Basket<Character> next() { new Basket("str", iterator.next()) }
+    Basket<Character> next() { new Basket("str", iterator.next().reverse()) }
 
     @Override
     void remove() { throw new UnsupportedOperationException() }
