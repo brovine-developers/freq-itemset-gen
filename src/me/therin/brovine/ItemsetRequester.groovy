@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import me.therin.mining.itemsets.data.Basket
 import me.therin.mining.itemsets.data.BasketIterator
 import me.therin.mining.itemsets.ItemsetGenerator
+import java.text.SimpleDateFormat
 
 /**
  * ItemsetRequester.java
@@ -20,31 +21,63 @@ class ItemsetRequester<Item> implements Runnable {
     static final String BAD_GENERATOR = "Itemset generator %s was not found"
     static final String BAD_ITERATOR = "Iterator %s was not found"
     static final String USAGE = "java ItemsetRequester <generator-name> <iterator>"
+    static final String INFORM = " Command `usage` returns API spec."
+    static final String LOG_FORMAT = "%s [%s] %s\n"
+    static final def DATE_FORMAT = new SimpleDateFormat("yyyy-MMM-dd hh:mm:ss")
+    
+    static final String API_USAGE = """
+`get [minSup:decimal:0-1] [maxSup:decimal:0-1]`
+    Returns: `{
+        'res': "(SUCCESS | FAILURE)":string,
+        'reason': "Reason for failure if FAILURE, request type if SUCCESS.":string,
+        'message': "Explanation of failure iff 'res' == 'FAILURE'.":string,
+        'time': "integer indicating the time it took to find itemsets":integer,
+        'data': "map with the itemsets and their frequency counts; ex: [[one, two]: 138]":map
+    }'
+
+    Returns a list of the itemsets between the min and max support values.
+    'time' is always 0 on FAILURE.
+    `maxSup` must be less than `minSup`, obviously. Both are decimal values
+    indicating the percent support an itemset must have to be included.
+
+`set [BasketIterator] [ItemsetGenerator]`
+    Returns: same as Get request except with no 'data' attribute; 'time'
+    will always be 0
+
+    If the request is successful, 'res' will be set to SUCCESS and 'reason'
+    will be "SET". Any subsequent queries by client will use the
+    BasketIterator and ItemsetGenerator specified.
+    Both Set values must be fully-qualified class names.
+    """
 
     private static String defaultGen
-    private static Map<String, ItemsetGenerator> genMap = new HashMap<>()
+    private static String defaultIter
+    private static Map<String, List<ItemsetGenerator>> genMap = new HashMap<>()
     private Socket client
+    private UUID uuid
     private ItemsetGenerator<Item> generator
 
-    private static enum ReqType { GET, UPDATE, SET }
+    private static enum ReqType { GET, UPDATE, SET, USAGE }
 
     private static enum Result { SUCCESS, FAILURE }
     private static enum Reason {
-        GET, UPDATE, SET, INVALID_SUP, INVALID_TYPE, INVALID_FORMAT,
+        GET, UPDATE, SET, USAGE, INVALID_SUP, INVALID_TYPE, INVALID_FORMAT,
         INVALID_GEN, INVALID_ITER, INVALID_CLASS
     }
 
     private class Request<Item> {
         protected final ReqType type
         private final double supPct
+        private final double maxPct
         private List<Basket<Item>> baskets
 
         protected Request(ReqType type) { this.type = type }
 
-        public Request(String type, String supPct, List<String> data)
+        public Request(String type, String supPct, String maxPct, List<String> data)
         throws NumberFormatException, IllegalArgumentException {
             baskets = new ArrayList<Basket<Item>>()
             this.supPct = Double.parseDouble(supPct)
+            this.maxPct = Double.parseDouble(maxPct)
             this.type = ReqType.valueOf(ReqType, type.toUpperCase())
 
             for (String gn : data)
@@ -92,40 +125,72 @@ class ItemsetRequester<Item> implements Runnable {
 
     public ItemsetRequester(Socket client) {
         this.client = client
-        getGenerator(defaultGen)
+        this.uuid = UUID.randomUUID()
+        getGenerator(defaultGen, defaultIter)
     }
 
+    /**
+     * Usage:
+     *
+     * Get request: `get [minSup:decimal:0-1] [maxSup:decimal:0-1]`
+     * Returns: `{
+     *    'res': "(SUCCESS | FAILURE)":string,
+     *    'reason': "Reason for failure if FAILURE, request type if SUCCESS.":string,
+     *    'message': "Explanation of failure iff 'res' == 'FAILURE'.":string,
+     *    'time': "integer indicating the time it took to find itemsets":integer,
+     *    'data': "map with the itemsets and their frequency counts; ex: [[one, two]: 138]":map
+     * }'
+     * Returns a list of the itemsets between the min and max support values.
+     * 'time' is always 0 on FAILURE.
+     * `maxSup` must be less than `minSup`, obviously. Both are decimal values
+     * indicating the percent support an itemset must have to be included.
+     *
+     * Set request: `set [BasketIterator] [ItemsetGenerator]`
+     * Returns: same as Get request except with no 'data' attribute; 'time'
+     * will always be 0
+     * If the request is successful, 'res' will be set to SUCCESS and 'reason'
+     * will be "SET". Any subsequent queries by client will use the
+     * BasketIterator and ItemsetGenerator specified.
+     *
+     * Both Set values must be fully-qualified class names.
+     */
     @Override
     void run() {
         String input = ""
         Response output
         def reader = new Scanner(client.getInputStream())
         def writer = new PrintWriter(client.getOutputStream())
-        System.err.println("Client connected.")
+        log("Client connected.")
 
-        while ((input = reader.nextLine()) != null) {
+        while (reader.hasNextLine() && (input = reader.nextLine()) != null) {
+            log(input)
+
             try {
                 if (input.equalsIgnoreCase(DONE))
                     break
-                output = doRequest(parseRequest(input))
+                else if (input.equalsIgnoreCase("usage"))
+                    output = new Response(Result.SUCCESS, Reason.USAGE, API_USAGE)
+                else
+                    output = doRequest(parseRequest(input))
             }
             catch (NumberFormatException e) {
                 output = new Response(Result.FAILURE, Reason.INVALID_SUP,
-                        "The minSup must be a double between 0 and 1.")
+                        "The minSup must be a double between 0 and 1." + INFORM)
             }
             catch (IllegalArgumentException e) {
                 output = new Response(Result.FAILURE, Reason.INVALID_TYPE,
-                        "Request not valid: invalid request type.")
+                        "Request not valid: invalid request type." + INFORM)
             }
             catch (UnsupportedOperationException e) {
                 output = new Response(Result.FAILURE, Reason.INVALID_FORMAT,
-                        "Request not valid: must contain at least 2 words.")
+                        "Request not valid: must contain at least 2 words." + INFORM)
             }
             catch (ClassNotFoundException e) {
                 output = new Response(Result.FAILURE, Reason.INVALID_CLASS,
-                        "Request not valid: class `$e.message` does not exist.")
+                        "Request not valid: class `$e.message` does not exist." + INFORM)
             }
 
+            log(output.toString())
             writer.println(output)
             writer.flush()
         }
@@ -133,6 +198,7 @@ class ItemsetRequester<Item> implements Runnable {
         if (generator != null)
             generator.reset()
 
+        log("Client disconnected.")
         writer.close()
         reader.close()
         client.close()
@@ -142,7 +208,7 @@ class ItemsetRequester<Item> implements Runnable {
         boolean done = false
         def server = new ServerSocket(PORT)
 
-        System.err.printf("Server started on port %d; waiting for clients.\n", PORT)
+        log_msg(String.format("Server started on port %d; waiting for clients.\n", PORT))
 
         while (!done) {
             new Thread(new ItemsetRequester(server.accept())).start()
@@ -167,18 +233,20 @@ class ItemsetRequester<Item> implements Runnable {
             System.exit(-1)
         }
 
-        defaultGen = gen + iter
-        genMap.put(defaultGen, (ItemsetGenerator) gener)
+        defaultGen = gen
+        defaultIter = iter
+        genMap.put(gen + iter, new ArrayList<ItemsetGenerator>() {{ add((ItemsetGenerator) gener) }})
     }
 
     public Response doRequest(Request req) {
         if (req.type == ReqType.GET) {
             def start = System.currentTimeMillis()
-            def data = generator.getFrequentItemsets(req.supPct)
+            def data = generator.getFrequentItemsets(req.supPct, req.maxPct)
             return new Response(Result.SUCCESS, Reason.GET, data, System.currentTimeMillis() - start)
         }
         else if (req.type == ReqType.SET) {
             SetRequest sq = (SetRequest) req
+            generator.release()
             return getGenerator(sq.gen, sq.iter)
         }
         //TODO: add support for live database updates
@@ -195,21 +263,19 @@ class ItemsetRequester<Item> implements Runnable {
         if (strs.length == 3 && strs[0].equalsIgnoreCase("set")) {
             return new SetRequest(strs[1], strs[2])
         }
-        else if (strs.length >= 2) {
+        else if (strs.length == 3 && strs[0].equalsIgnoreCase("get")) {
             for (int i = 2; i < strs.length; i++)
                 arr.add(strs[i])
 
-            return new Request(strs[0], strs[1], arr)
+            return new Request(strs[0], strs[1], strs[2], arr)
         }
         else throw new UnsupportedOperationException()
     }
 
-    public Response getGenerator(String key) { return getGenerator(key, "") }
-
     public synchronized Response getGenerator(String gen, String iter) {
         // Try to load the generator from the map; if it doesn't yet exist we
         // create it
-        if ((generator = genMap.get(gen + iter)) == null) {
+        if ((generator = getUnused(gen + iter)) == null) {
             def constr = Class.forName(gen).getConstructor([BasketIterator] as Class[])
             def bask = Class.forName(iter).newInstance()
             def gener = constr.newInstance(bask)
@@ -227,10 +293,40 @@ class ItemsetRequester<Item> implements Runnable {
 
             // Save the new generator to the map
             generator = (ItemsetGenerator) gener
-            genMap.put(gen + iter, generator)
+            def list = genMap.get(gen + iter)
+            if (list == null) list = new ArrayList<ItemsetGenerator>()
+            list.add(generator)
+            log("Adding new itemset generator: " + gen + ", " + iter)
+            genMap.put(gen + iter, list)
         }
 
         return new Response(Result.SUCCESS, Reason.SET, null, 0)
+    }
+
+    public synchronized ItemsetGenerator getUnused(String key) {
+        def list = genMap.get(key)
+
+        if (list != null) {
+            for (def item in list) {
+                if (item.lock())
+                    return item
+            }
+        }
+
+        return null
+    }
+
+    // Return the unique ID assigned to this client
+    public String toString() {
+        uuid.toString()
+    }
+
+    public void log(String message) {
+        log_msg(String.format("[%s] %s", uuid, message))
+    }
+
+    public static void log_msg(String message) {
+        System.err.printf(LOG_FORMAT, DATE_FORMAT.format(new Date()), "debug", message)
     }
 
     public static void main(String[] args) {
