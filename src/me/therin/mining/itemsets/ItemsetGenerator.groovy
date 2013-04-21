@@ -11,11 +11,15 @@ import me.therin.mining.itemsets.data.BasketIterator
  * @date March 08, 2013
  */
 public abstract class ItemsetGenerator<Item> {
+    private boolean inUse = false
     protected BasketIterator<Item> baskets
 
     public ItemsetGenerator(BasketIterator<Item> baskets) { this.baskets = baskets }
 
-    public abstract Map<List<Item>, Integer> getFrequentItemsets(double minSup);
+    public abstract Map<List<Item>, Integer> getFrequentItemsets(double minPct, double maxPct);
+
+    public boolean lock() { return (!inUse) ? (inUse = true) : false }
+    public void release() { inUse = false }
 
     /**
      * Refreshes the generator to prepare for the next request. In other words,
