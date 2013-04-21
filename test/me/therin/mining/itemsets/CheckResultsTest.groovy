@@ -1,18 +1,20 @@
+package me.therin.mining.itemsets
+
 import me.therin.mining.itemsets.apriori.Apriori
 import me.therin.brovine.Transfac
 import me.therin.brovine.TransfacBaskets
 import me.therin.mining.itemsets.fpgrowth.FPTree
 
 // Initialize algorithms
-def minSup = 0.84
+def minSup = 0.86
 def tfs = new TransfacBaskets()
 def tfs2 = new TransfacBaskets()
 def apriori = new Apriori<Transfac>(tfs)
 def fpgrowth = new FPTree<Transfac>(tfs2)
 
 // Get frequent itemsets using each algorithm
-def apItemsets = apriori.getFrequentItemsets(minSup)
-def fgItemsets = fpgrowth.getFrequentItemsets(minSup)
+def apItemsets = apriori.getFrequentItemsets(minSup, 0.96)
+def fgItemsets = fpgrowth.getFrequentItemsets(minSup, 0.96)
 
 def checkList = new HashSet<List<Transfac>>()
 
@@ -35,8 +37,9 @@ fgItemsets.keySet().each {
 // assumed the two sets are of the same size, so this is not possible. Thus
 // our sets must be equal.
 
-// We should have the same number of items in each result
-assert fgItemsets.keySet().size() == apItemsets.keySet().size()
 // The checklist should be empty, indicating that there aren't any items
 // in one itemset that aren't also in the other
 assert checkList.isEmpty()
+
+// We should have the same number of items in each result
+assert fgItemsets.keySet().size() == apItemsets.keySet().size()
