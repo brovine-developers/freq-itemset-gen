@@ -162,46 +162,55 @@ class ItemsetRequester<Item> implements Runnable {
         def writer = new PrintWriter(client.getOutputStream())
         log("Client connected.")
 
-        while (reader.hasNextLine() && (input = reader.nextLine()) != null) {
-            log(input)
+        try {
+            while (reader.hasNextLine() && (input = reader.nextLine()) != null) {
+                log(input)
 
-            try {
-                if (input.equalsIgnoreCase(DONE))
-                    break
-                else if (input.equalsIgnoreCase("usage"))
-                    output = new Response(Result.SUCCESS, Reason.USAGE, API_USAGE)
-                else
-                    output = doRequest(parseRequest(input))
-            }
-            catch (NumberFormatException e) {
-                output = new Response(Result.FAILURE, Reason.INVALID_SUP,
-                        "The minSup must be a double between 0 and 1." + INFORM)
-            }
-            catch (IllegalArgumentException e) {
-                output = new Response(Result.FAILURE, Reason.INVALID_TYPE,
-                        "Request not valid: invalid request type." + INFORM)
-            }
-            catch (UnsupportedOperationException e) {
-                output = new Response(Result.FAILURE, Reason.INVALID_FORMAT,
-                        "Request not valid: must contain at least 2 words." + INFORM)
-            }
-            catch (ClassNotFoundException e) {
-                output = new Response(Result.FAILURE, Reason.INVALID_CLASS,
-                        "Request not valid: class `$e.message` does not exist." + INFORM)
-            }
+                try {
+                    if (input.equalsIgnoreCase(DONE))
+                        break
+                    else if (input.equalsIgnoreCase("usage"))
+                        output = new Response(Result.SUCCESS, Reason.USAGE, API_USAGE)
+                    else
+                        output = doRequest(parseRequest(input))
+                }
+                catch (NumberFormatException e) {
+                    output = new Response(Result.FAILURE, Reason.INVALID_SUP,
+                            "The minSup must be a double between 0 and 1." + INFORM)
+                }
+                catch (IllegalArgumentException e) {
+                    output = new Response(Result.FAILURE, Reason.INVALID_TYPE,
+                            "Request not valid: invalid request type." + INFORM)
+                }
+                catch (UnsupportedOperationException e) {
+                    output = new Response(Result.FAILURE, Reason.INVALID_FORMAT,
+                            "Request not valid: must contain at least 2 words." + INFORM)
+                }
+                catch (ClassNotFoundException e) {
+                    output = new Response(Result.FAILURE, Reason.INVALID_CLASS,
+                            "Request not valid: class `$e.message` does not exist." + INFORM)
+                }
 
-            log(output.toString())
-            writer.println(output)
-            writer.flush()
+                log(output.toString())
+                writer.println(output)
+                writer.flush()
+            }
         }
+        catch (Exception e) {
+            log("Exception encountered. Message: " + e.message)
+            e.printStackTrace()
+        }
+        finally {
+            if (generator != null) {
+                generator.release()
+                generator.reset()
+            }
 
-        if (generator != null)
-            generator.reset()
-
-        log("Client disconnected.")
-        writer.close()
-        reader.close()
-        client.close()
+            log("Client disconnected.")
+            writer.close()
+            reader.close()
+            client.close()
+        }
     }
 
     public static boolean listen() throws IOException {
@@ -211,7 +220,15 @@ class ItemsetRequester<Item> implements Runnable {
         log_msg(String.format("Server started on port %d; waiting for clients.\n", PORT))
 
         while (!done) {
-            new Thread(new ItemsetRequester(server.accept())).start()
+            def req = null
+
+            try {
+                req = new ItemsetRequester(server.accept())
+                new Thread(req).start()
+            }
+            catch (Exception e) {
+                log_msg(String.format("[%s] %s", (req != null) ? req.uuid : '?', e.message))
+            }
         }
 
         server.close()
