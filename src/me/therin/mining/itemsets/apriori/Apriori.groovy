@@ -20,16 +20,17 @@ public class Apriori<Item> extends ItemsetGenerator<Item> {
     }
 
     @Override
-    Map<List<Item>, Integer> getFrequentItemsets(double minSup) {
+    Map<List<Item>, Integer> getFrequentItemsets(double minSup, double maxSup) {
         def items = baskets.uniqueItems
         def lvl1 = new LinkedHashMap<List<Item>, Integer>()
-        int minCnt = minSup * baskets.size()
+        int minCnt = Math.round(minSup * baskets.size())
+        int maxCnt = Math.round(maxSup * baskets.size())
 
         for (final Item item : items) {
             lvl1.put(new ArrayList<Item>() {{ add(item) }}, 0)
         }
 
-        return getFreqItemsets(lvl1, 1, minCnt)
+        return getFreqItemsets(lvl1, 1, minCnt, maxCnt)
     }
 
     /**
@@ -44,7 +45,7 @@ public class Apriori<Item> extends ItemsetGenerator<Item> {
      * @return the list of frequent itemsets
      */
     private Map<List<Item>, Integer> getFreqItemsets(
-     Map<List<Item>, Integer> cands, int level, int minCnt) {
+     Map<List<Item>, Integer> cands, int level, int minCnt, int maxCnt) {
         def goodSets = new LinkedHashMap<List<Item>, Integer>()
 
         if (!cands.isEmpty()) {
@@ -60,12 +61,12 @@ public class Apriori<Item> extends ItemsetGenerator<Item> {
             }
 
             for (def entry : cands.entrySet()) {
-                if (entry.value >= minCnt)
+                if (entry.value >= minCnt && entry.value <= maxCnt)
                     goodSets.put(entry.key, entry.value)
             }
 
             def nextCands = generateCandidates(goodSets, level + 1)
-            return goodSets + getFreqItemsets(nextCands, level + 1, minCnt)
+            return goodSets + getFreqItemsets(nextCands, level + 1, minCnt, maxCnt)
         }
         else return goodSets
     }
