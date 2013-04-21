@@ -13,8 +13,8 @@ def apriori = new Apriori<Transfac>(tfs)
 def fpgrowth = new FPTree<Transfac>(tfs2)
 
 // Get frequent itemsets using each algorithm
-def apItemsets = apriori.getFrequentItemsets(minSup, 0.96)
-def fgItemsets = fpgrowth.getFrequentItemsets(minSup, 0.96)
+def apItemsets = apriori.getFrequentItemsets(minSup, 0.90)
+def fgItemsets = fpgrowth.getFrequentItemsets(minSup, 0.90)
 
 def checkList = new HashSet<List<Transfac>>()
 
