@@ -16,12 +16,13 @@ public class FPTree<Item> extends ItemsetGenerator<Item> {
     private def root = new Node(-1, null, itemAcc)
     private def suffix = new LinkedList<Item>()
     private int minSup
+    private int maxSup
     private boolean first = true
 
     FPTree(BasketIterator<Item> baskets) {
         super(baskets)
-        first = true
         baskets.each { addToTree(root, (List<Item>) it.items.reverse().clone(), itemAcc) }
+        first = true
     }
 
     FPTree(BasketIterator<Item> baskets, boolean bo) {
@@ -49,23 +50,30 @@ public class FPTree<Item> extends ItemsetGenerator<Item> {
     }
 
     @Override
-    Map<List<Item>, Integer> getFrequentItemsets(double supPct) {
+    Map<List<Item>, Integer> getFrequentItemsets(double supPct, double maxPct) {
         //System.err.println((int) Math.round(supPct * baskets.size()))
+        this.minSup = (int) Math.round(supPct * baskets.size())
+        this.maxSup = (int) Math.round(maxPct * baskets.size())
 
-        getFrqItm(baskets.getUniqueItems().reverse(),
-          (int) Math.round(supPct * baskets.size()))
+        // If we need to trim high-count elements, call copyTree() to clone this,
+        // which calls removeInfrequent() on the cloned tree
+        def tree = (maxPct < 1) ? copyTree() : this;
+
+        tree.getFrqItm(baskets.getUniqueItems().reverse(), minSup, maxSup)
     }
 
-    private Map<List<Item>, Integer> getFrqItm(List<Item> reverse, int minSup) {
-        this.minSup = minSup
+    private Map<List<Item>, Integer> getFrqItm(List<Item> reverse, int minSup, int maxSup) {
         Map<List<Item>, Integer> lists = new HashMap()
 
-        if (root.count >= minSup) {
-            lists.put(suffix, root.count)
+        if (!first) {
+            if (root.count >= minSup && root.count <= maxSup) {
+                lists.put(suffix, root.count)
+            }
+            else return lists
         }
-        if (root.children.size() < 1 || (!first && (root.count < minSup))) {
+
+        if (root.children.size() < 1)
             return lists
-        }
 
         for (int i = 0; i < reverse.size(); i++) {
             def item = reverse.get(i)
@@ -73,10 +81,25 @@ public class FPTree<Item> extends ItemsetGenerator<Item> {
               reverse.subList(i + 1, reverse.size()) : new ArrayList<Item>()
             def tree = this.getPrefixTree(item)
 
-            lists.putAll(tree.getFrqItm(list, minSup))
+            if (tree != null)
+                lists.putAll(tree.getFrqItm(list, minSup, maxSup))
         }
 
         return lists
+    }
+
+    FPTree<Item> copyTree() {
+        def tree = this.clone()
+        tree.itemAcc = new HashMap<Item, Node<Item>>()
+
+        // Clone the suffix list
+        tree.suffix = this.suffix.clone()
+
+        tree.root = tree.root.copyTree(tree.itemAcc)
+        tree.removeInfrequent()
+
+        //println(tree.toString() + ": " + tree.root.count)
+        return tree
     }
 
     FPTree<Item> getPrefixTree(Item item) {
@@ -84,18 +107,21 @@ public class FPTree<Item> extends ItemsetGenerator<Item> {
         tree.itemAcc = new HashMap<Item, Node<Item>>()
 
         // Clone the suffix list and add the new item on it
+        tree.first = false
         tree.suffix = this.suffix.clone()
-        tree.suffix.add(0, item);
+        if (item != null)
+            tree.suffix.add(0, item)
 
-        if (itemAcc.containsKey(item)) {
+        if (itemAcc.containsKey(item) || item == null) {
             tree.root = tree.root.findPrefixTree(item, tree.itemAcc)
             if (tree.root == null) tree.root = new Node(-1, null, new HashMap<Item, Node<Item>>())
             tree.removeInfrequent()
         }
         else {
-            tree.root = new Node(-1, null, new HashMap<Item, Node<Item>>())
+            tree = null
         }
 
+        //println(tree.toString() + ": " + tree.root.count)
         return tree
     }
 
@@ -108,7 +134,7 @@ public class FPTree<Item> extends ItemsetGenerator<Item> {
                 cur = cur.next
             }
 
-            if (cnt < minSup && i.item != -1) {
+            if ((cnt < minSup || cnt > maxSup) && i.item != -1) {
                 while (i != null) {
                     if (i.parent != null)
                         i.parent.children.remove(i)
@@ -186,6 +212,9 @@ public class FPTree<Item> extends ItemsetGenerator<Item> {
         tree.root = this.root
         tree.itemAcc = this.itemAcc
         tree.suffix = this.suffix
+        tree.maxSup = this.maxSup
+        tree.minSup = this.minSup
+        tree.first = this.first
 
         return tree
     }
