@@ -18,10 +18,15 @@ class TransfacBaskets implements BasketIterator<Transfac> {
     private Connection conn
     private static final String UNIQUE_ITEMS =
 """
-SELECT DISTINCT(tf_cart) as matchid, transfac
+SELECT DISTINCT(tf_cart) as matchid, transfac, g.cnt
 FROM apriori_staging
 INNER JOIN factor_matches ON (tf_cart = matchid)
-ORDER BY matchid
+INNER JOIN (select tf, cnt from (
+select tf_cart as tf, count(*) as cnt
+from apriori_staging
+group by tf_cart
+) f) g ON (tf = tf_cart)
+ORDER BY matchid;
 """
 
     private static final String FILL_BASKETS =
@@ -32,8 +37,7 @@ from (
 select tf_cart, count(*) as cnt
 from apriori_staging
 group by tf_cart
-) f
-where cnt > 140 and cnt < 150) g
+) f) g
 INNER JOIN apriori_staging USING (tf_cart)
 INNER JOIN factor_matches ON (tf_cart = matchid)
 ORDER BY geneid, tf_cart
