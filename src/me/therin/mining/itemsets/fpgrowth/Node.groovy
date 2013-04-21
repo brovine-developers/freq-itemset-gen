@@ -79,6 +79,20 @@ public class Node<Item> {
         return n
     }
 
+    Node copyTree(def itemAcc) {
+        Node n = new Node(this.item, null, itemAcc)
+        n.count = this.count
+
+        for (def child in children) {
+            child = child.copyTree(itemAcc)
+
+            n.addChild(child)
+            child.parent = n
+        }
+
+        return n
+    }
+
     @Override
     String toString() { toStringHelper(0) }
 
