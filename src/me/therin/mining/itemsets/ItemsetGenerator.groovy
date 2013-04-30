@@ -21,6 +21,8 @@ public abstract class ItemsetGenerator<Item> {
     public boolean lock() { return (!inUse) ? (inUse = true) : false }
     public void release() { inUse = false }
 
+    public int getUniqueItemCnt() { return baskets.size() }
+
     /**
      * Refreshes the generator to prepare for the next request. In other words,
      * this function will ensure that each client's response will not depend

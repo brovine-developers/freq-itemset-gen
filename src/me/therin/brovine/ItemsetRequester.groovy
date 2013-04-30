@@ -29,6 +29,7 @@ class ItemsetRequester<Item> implements Runnable {
 `get [minSup:decimal:0-1] [maxSup:decimal:0-1]`
     Returns: `{
         'res': "(SUCCESS | FAILURE)":string,
+        'item-cnt': "integer indicating the number of unique items":integer,
         'reason': "Reason for failure if FAILURE, request type if SUCCESS.":string,
         'message': "Explanation of failure iff 'res' == 'FAILURE'.":string,
         'time': "integer indicating the time it took to find itemsets":integer,
@@ -101,6 +102,7 @@ class ItemsetRequester<Item> implements Runnable {
         public final Reason reason
         public final String message
         public final long time
+        public final int itemCnt
         public Map<List<Item>, Integer> data
 
         public Response(Result res, Reason r, String message) {
@@ -108,14 +110,16 @@ class ItemsetRequester<Item> implements Runnable {
             this.reason = r
             this.message = message
             this.data = null
+            this.itemCnt = 0
             this.time = 0
         }
 
-        public Response(Result res, Reason r, def data, long time) {
+        public Response(Result res, Reason r, def data, long time, int itemCnt) {
             this.res = res
             this.reason = r
             this.message = ""
             this.data = data
+            this.itemCnt = itemCnt
             this.time = time
         }
 
@@ -135,6 +139,7 @@ class ItemsetRequester<Item> implements Runnable {
      * Get request: `get [minSup:decimal:0-1] [maxSup:decimal:0-1]`
      * Returns: `{
      *    'res': "(SUCCESS | FAILURE)":string,
+     *    'item-cnt': "integer indicating the number of unique items":integer,
      *    'reason': "Reason for failure if FAILURE, request type if SUCCESS.":string,
      *    'message': "Explanation of failure iff 'res' == 'FAILURE'.":string,
      *    'time': "integer indicating the time it took to find itemsets":integer,
@@ -259,7 +264,8 @@ class ItemsetRequester<Item> implements Runnable {
         if (req.type == ReqType.GET) {
             def start = System.currentTimeMillis()
             def data = generator.getFrequentItemsets(req.supPct, req.maxPct)
-            return new Response(Result.SUCCESS, Reason.GET, data, System.currentTimeMillis() - start)
+            return new Response(Result.SUCCESS, Reason.GET, data,
+              System.currentTimeMillis() - start, generator.getUniqueItemCnt())
         }
         else if (req.type == ReqType.SET) {
             SetRequest sq = (SetRequest) req
@@ -317,7 +323,7 @@ class ItemsetRequester<Item> implements Runnable {
             genMap.put(gen + iter, list)
         }
 
-        return new Response(Result.SUCCESS, Reason.SET, null, 0)
+        return new Response(Result.SUCCESS, Reason.SET, null, 0, 0)
     }
 
     public synchronized ItemsetGenerator getUnused(String key) {
