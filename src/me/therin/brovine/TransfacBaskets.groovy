@@ -1,5 +1,6 @@
 package me.therin.brovine
 
+import me.therin.brovine.Settings
 import me.therin.mining.itemsets.data.BasketIterator
 import me.therin.mining.itemsets.data.Basket
 import java.sql.ResultSet
@@ -58,7 +59,7 @@ FROM apriori_staging
 
             conn =
                 DriverManager.getConnection("jdbc:mysql://localhost/brovine?" +
-                        "user=team_brovine&password=v9G4uJn7Rta9vQvN");
+                        "user=" + Settings.USER + "&password=" + Settings.PASS);
 
             fillBaskets()
         }
