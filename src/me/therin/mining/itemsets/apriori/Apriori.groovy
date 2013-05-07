@@ -101,8 +101,10 @@ public class Apriori<Item> extends ItemsetGenerator<Item> {
                         // true or false indicating whether or not the subset
                         // is frequent, and then reducing the boolean values.
                         doAdd = (0..< cand2.key.size() - 1).collect {
-                            def mustBePresent = cand2.key[it ..< (it + (level - 3))] + distincts
-                            return prevGood.keySet().collect { mustBePresent == it }
+                            def mustBePresent = cand2.key[0 ..< ((level - 3))] + distincts
+                            return prevGood.keySet().collect {
+                                mustBePresent == it
+                            }
                               .inject(false) { acc, val -> return acc || val }
                         }.inject(true) { acc, val -> acc && val }
                     }
