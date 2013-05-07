@@ -6,7 +6,7 @@ import me.therin.brovine.TransfacBaskets
 import me.therin.mining.itemsets.fpgrowth.FPTree
 
 // Initialize algorithms
-def minSup = 0.86
+def minSup = 0.84
 def tfs = new TransfacBaskets()
 def tfs2 = new TransfacBaskets()
 def apriori = new Apriori<Transfac>(tfs)
@@ -19,12 +19,12 @@ def fgItemsets = fpgrowth.getFrequentItemsets(minSup, 0.90)
 def checkList = new HashSet<List<Transfac>>()
 
 // Add all items from set one
-checkList.addAll(apItemsets.keySet())
+checkList.addAll(fgItemsets.keySet())
 
 // For each item in fgItemsets, remove the corresponding item in the checklist.
 // After this, if the checklist is empty, fgItemsets must have apItemsets as a
 // subset.
-fgItemsets.keySet().each {
+apItemsets.keySet().each {
     checkList.remove(it)
 }
 
