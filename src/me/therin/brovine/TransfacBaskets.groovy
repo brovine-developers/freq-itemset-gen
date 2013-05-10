@@ -54,14 +54,17 @@ FROM apriori_staging
     private Iterator<Basket<Transfac>> itr
 
     public TransfacBaskets() {
+        initConnection()
+        fillBaskets()
+    }
+
+    private void initConnection() {
         try {
-            Class.forName("com.mysql.jdbc.Driver").newInstance();
+            Class.forName("com.mysql.jdbc.Driver").newInstance()
 
             conn =
                 DriverManager.getConnection("jdbc:mysql://localhost/brovine?" +
                         "user=" + Settings.USER + "&password=" + Settings.PASS);
-
-            fillBaskets()
         }
         catch (SQLException ex) {
             // handle any errors
@@ -80,6 +83,9 @@ FROM apriori_staging
             Statement state
             ResultSet rs
             List<Transfac> tfs = new ArrayList<Transfac>()
+
+            if (conn.isClosed())
+                initConnection()
 
             state = conn.createStatement()
             rs = state.executeQuery(UNIQUE_ITEMS)
@@ -121,6 +127,9 @@ FROM apriori_staging
             Statement state
             ResultSet rs
 
+            if (conn.isClosed())
+                initConnection()
+
             state = conn.createStatement()
             rs = state.executeQuery(NUM_BASKETS)
 
@@ -143,6 +152,9 @@ FROM apriori_staging
                 ResultSet rs
                 def basket = null
                 baskets = new ArrayList<Basket<Transfac>>()
+
+                if (conn.isClosed())
+                    initConnection()
 
                 state = conn.createStatement()
                 rs = state.executeQuery(FILL_BASKETS)
