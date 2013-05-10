@@ -1,9 +1,9 @@
-all: compile lib
+all: lib
 
 compile:
 	groovyc -cp lib/gson-2.2.2.jar:lib/mysql-connector-java-5.1.23-bin.jar -d bin `find ./src -name *.groovy` `find ./src -name *.java` 
 
-lib:
+lib: compile
 	cd bin; jar cf ../lib/freq-itemset-gen.jar `find . -name *.class`
 
 start:
