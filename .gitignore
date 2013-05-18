@@ -1,2 +1,6 @@
 out
 src/me/therin/brovine/Settings.groovy
+*.out
+*.log
+bin
+lib/passwd.groovy

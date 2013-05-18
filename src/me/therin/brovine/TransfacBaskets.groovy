@@ -60,17 +60,19 @@ FROM apriori_staging
 
     private void initConnection() {
         try {
-            Class.forName("com.mysql.jdbc.Driver").newInstance()
+            def script = new GroovyScriptEngine( './lib' ).with {
+               loadScriptByName( 'passwd.groovy' )
+            }
 
-            conn =
-                DriverManager.getConnection("jdbc:mysql://localhost/brovine?" +
-                        "user=" + Settings.USER + "&password=" + Settings.PASS);
+            Class.forName(script.driver).newInstance()
+            conn = DriverManager.getConnection(script.url, script.user, script.pass)
         }
         catch (SQLException ex) {
             // handle any errors
-            System.out.println("SQLException: " + ex.getMessage());
-            System.out.println("SQLState: " + ex.getSQLState());
-            System.out.println("VendorError: " + ex.getErrorCode());
+            System.err.println("SQLException: " + ex.getMessage())
+            System.err.println("SQLState: " + ex.getSQLState())
+            System.err.println("VendorError: " + ex.getErrorCode())
+            ex.printStackTrace()
         }
         catch (Exception ex) {
             ex.printStackTrace()
@@ -84,7 +86,7 @@ FROM apriori_staging
             ResultSet rs
             List<Transfac> tfs = new ArrayList<Transfac>()
 
-            if (conn.isClosed())
+            if (conn == null || conn.isClosed())
                 initConnection()
 
             state = conn.createStatement()
@@ -153,7 +155,7 @@ FROM apriori_staging
                 def basket = null
                 baskets = new ArrayList<Basket<Transfac>>()
 
-                if (conn.isClosed())
+                if (conn == null || conn.isClosed())
                     initConnection()
 
                 state = conn.createStatement()
